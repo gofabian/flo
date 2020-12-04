@@ -1,0 +1,30 @@
+---
+jobs:
+- name: default
+  plan:
+  - task: build
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: pelotech/drone-ecs
+      params:
+        PLUGIN_PASSWORD: secret
+        PLUGIN_USERNAME: fab
+        PLUGIN_TAGS: "1.0,1.0.5"
+      run:
+        path: .
+  - task: frontend
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: maven
+          tag: 3-jdk-10
+      run:
+        path: sh
+        args:
+        - -exc
+        - mvn -version

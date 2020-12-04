@@ -1,0 +1,60 @@
+---
+resource_types:
+  - name: image-config
+    type: registry-image
+    source:
+      repository: gofabian/image-entrypoint-resource
+      tag: latest
+
+resources:
+- name: image-config-plugins-webhook
+  type: image-config
+  source:
+    repository: plugins/webhook
+
+jobs:
+- name: default
+  plan:
+
+  - get: image-config-plugins-webhook
+    params:
+      format: rootfs+entrypoint
+  - task: show-entrypoint
+    config:
+      inputs:
+        - name: image-config-plugins-webhook
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: alpine
+      run:
+        path: sh
+        args:
+          - -exc
+          - |-
+            apk add jq
+            cd image-config-plugins-webhook
+            cat config.json | jq ".Entrypoint"
+            cat config.json | jq ".Cmd"
+            
+ # - task: build
+ #   config:
+ #     platform: linux
+ #     image_resource:
+ #       type: registry-image
+ #       source:
+ #         repository: plugins/webhook
+ #     params:
+ #       PLUGIN_URLS: http://requestbin.net/r/1cq40y51
+ #       DRONE_REPO_OWNER: octocat
+ #       DRONE_REPO_NAME: hello-world
+ #       DRONE_COMMIT_SHA: 7fd1a60b01f91b314f59955a4e4d4e80d8edf11d
+ #       DRONE_COMMIT_BRANCH: master
+ #       DRONE_COMMIT_AUTHOR: octocat
+ #       DRONE_BUILD_NUMBER: 1
+ #       DRONE_BUILD_STATUS: success
+ #       DRONE_BUILD_LINK: http://github.com/octocat/hello-world
+ #       DRONE_TAG: 1.0.0
+ #     run:
+ #       path: /bin/drone-webhook

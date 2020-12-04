@@ -1,0 +1,27 @@
+jobs:
+  - name: adapter
+    plan:
+      - task: build
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source: { repository: maven, tag: 3-jdk-10 }
+          run:
+            path: sh
+            args: 
+            - -exc
+            - |
+              java -version
+      - task: frontend
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source: { repository: maven, tag: 3-jdk-10 }
+          run:
+            path: sh
+            args: 
+            - -exc
+            - |
+              mvn -version

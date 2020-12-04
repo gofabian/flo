@@ -1,0 +1,77 @@
+jobs:
+- name: reconfigure
+  plan:
+  - task: flo-init
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: busybox
+      run:
+        path: sh
+        args:
+          - -ecx
+          - |-
+            cat > flo/pipeline.yml <<- EOM
+            jobs:
+              - name: reconfigure
+                plan:
+                - task: flo-init
+                  config:
+                    platform: linux
+                    image_resource:
+                      type: registry-image
+                      source:
+                        repository: busybox
+                    run:
+                      path: sh
+                      args:
+                        - -ecx
+                        - |-
+                          cat > flo/pipeline.yml <<- EOM
+                          jobs:
+                            - name: execute
+                              public: true
+                              plan:
+                                - task: simple-task
+                                  config:
+                                    platform: linux
+                                    image_resource:
+                                      type: registry-image
+                                      source: { repository: busybox }
+                                    run:
+                                      path: echo
+                                      args: ["Hello, world!"]
+                          EOM
+                    outputs:
+                      - name: flo
+                - set_pipeline: self
+                  file: flo/pipeline.yml
+              - name: execute
+                plan:
+                - task: simple-task
+                  config:
+                    platform: linux
+                    image_resource:
+                      type: registry-image
+                      source: { repository: busybox }
+                    run:
+                      path: echo
+                      args: ["simple task2"]
+            EOM
+      outputs:
+        - name: flo
+  - set_pipeline: self
+    file: flo/pipeline.yml
+- name: execute
+  plan:
+  - task: simple-task
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source: { repository: busybox }
+      run:
+        path: echo
+        args: ["simple task1"]
