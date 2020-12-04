@@ -14,10 +14,8 @@ import (
 
 func ConvertPipeline(flagSet *flag.FlagSet, args []string) error {
 	inputPtr := flagSet.String("i", "", "path to Drone pipeline YAML (default: stdin)")
-	outputPtr := flagSet.String("o", "", "path to Concourse pipeline YAML (default: stdout)")
+	//outputPtr := flagSet.String("o", "", "path to Concourse pipeline YAML (default: stdout)")
 	flagSet.Parse(args)
-	fmt.Println("input:", *inputPtr)
-	fmt.Println("output:", *outputPtr)
 
 	// open file
 	var inputFile *os.File
@@ -60,7 +58,10 @@ func ConvertPipeline(flagSet *flag.FlagSet, args []string) error {
 	}
 
 	// create Concourse pipeline
-	concoursePipeline := concourse.CreatePipeline(&dronePipeline)
+	concoursePipeline, err := concourse.CreatePipeline(&dronePipeline)
+	if err != nil {
+		panic(err)
+	}
 
 	encoder := yaml.NewEncoder(os.Stdout)
 	err = encoder.Encode(concoursePipeline)

@@ -2,7 +2,7 @@ package concourse
 
 type Pipeline struct {
 	Jobs          []Job
-	Resources     []Resource     `yaml:"resource,omitempty"`
+	Resources     []Resource     `yaml:"resources,omitempty"`
 	ResourceTypes []ResourceType `yaml:"resource_types,omitempty"`
 	Groups        []GroupConfig  `yaml:"groups,omitempty"`
 }

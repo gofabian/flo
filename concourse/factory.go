@@ -5,13 +5,21 @@ import (
 	"strings"
 
 	"github.com/gofabian/flo/drone"
+	"github.com/gofabian/flo/git"
 )
 
-func CreatePipeline(dronePipeline *drone.Pipeline) *Pipeline {
+func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
+	gitRepository, err := git.GetRepository()
+	if err != nil {
+		return nil, err
+	}
+
 	gitResource := Resource{
 		Name: dronePipeline.Name + "-git",
+		Type: "git",
 		Source: map[string]string{
-			"uri": "",
+			"uri":    gitRepository.URL,
+			"branch": gitRepository.Branch,
 		},
 	}
 
@@ -39,11 +47,11 @@ func CreatePipeline(dronePipeline *drone.Pipeline) *Pipeline {
 		Name: dronePipeline.Name,
 		Plan: concourseSteps,
 	}
-
-	return &Pipeline{
+	pipeline := Pipeline{
 		Resources: []Resource{gitResource},
 		Jobs:      []Job{job},
 	}
+	return &pipeline, nil
 }
 
 func createSourceFromImage(image string) ImageSource {
@@ -82,7 +90,6 @@ func createSingleCommand(droneStep *drone.Step) *Command {
 	case 0:
 		return &Command{
 			Path: "",
-			Args: elements,
 		}
 	default:
 		return &Command{
