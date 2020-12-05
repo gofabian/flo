@@ -3,6 +3,7 @@ package git
 import (
 	"bufio"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -14,6 +15,22 @@ type Repository struct {
 
 func GetRepository() (*Repository, error) {
 	url, err := readRemoteUrl(".git/config")
+	if err != nil {
+		return nil, err
+	}
+
+	//fmt.Printf("found git remote url: %s\n", url)
+	httpsUrl, err := convertRemoteUrlToHttps(url)
+	if err != nil {
+		return nil, err
+	}
+	if url != httpsUrl {
+		url = httpsUrl
+		//fmt.Printf("convert to https url: %s\n", url)
+	}
+
+	//fmt.Printf("check public access to %s\n", url)
+	err = checkPublicAccess(url)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +91,38 @@ func readRemoteUrl(pathToGitConfig string) (string, error) {
 		return "", fmt.Errorf("Could not find URL of git repo in %s", pathToGitConfig)
 	}
 	return firstRemoteURL, nil
+}
+
+func convertRemoteUrlToHttps(url string) (string, error) {
+	// https://domain.de/org/repo.git
+	if strings.HasPrefix(url, "https://") {
+		return url, nil
+	}
+	// git://domain.de/org/repo.git
+	if strings.HasPrefix(url, "git://") {
+		return "https" + url[3:], nil
+	}
+	// git@domain.de:org/repo.git
+	elements := strings.Split(url, "@")
+	if len(elements) != 2 {
+		return "", fmt.Errorf("unexpected format of git remote url: %s", url)
+	}
+	u := strings.Replace(elements[1], ":", "/", 1)
+	return fmt.Sprintf("https://%s", u), nil
+}
+
+func checkPublicAccess(url string) error {
+	response, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("cannot access git remote url %s, %w", url, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		return fmt.Errorf("cannot access git remote url %s, response status=%d",
+			url, response.StatusCode)
+	}
+	return nil
 }
 
 func readBranch(pathToHeadFile string) (string, error) {
