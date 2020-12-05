@@ -1,7 +1,6 @@
 package concourse
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -9,30 +8,79 @@ import (
 	"github.com/gofabian/flo/git"
 )
 
-const workspaceName = "workspace"
-
 func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
 	gitResource, err := createGitResource(dronePipeline)
 	if err != nil {
 		return nil, err
 	}
-
 	checkoutStep := Step{
 		Get:     gitResource.Name,
 		Trigger: true,
 	}
-	taskSteps := createTaskSteps(gitResource, dronePipeline)
-	allSteps := append([]Step{checkoutStep}, taskSteps...)
+	buildJob, err := CreateBuildJob(dronePipeline, &checkoutStep)
+	if err != nil {
+		return nil, err
+	}
+	maintenanceJob, err := CreateMaintenanceJob(dronePipeline, &checkoutStep)
+	if err != nil {
+		return nil, err
+	}
+	pipeline := Pipeline{
+		Resources: []Resource{*gitResource},
+		Jobs:      []Job{*maintenanceJob, *buildJob},
+	}
+	return &pipeline, nil
+}
+
+func CreateMaintenanceJob(dronePipeline *drone.Pipeline, checkoutStep *Step) (*Job, error) {
+	floAdapterStep := Step{
+		Task: "flo-adapter",
+		Config: &Task{
+			Platform:      Linux,
+			ImageResource: *createImageResource("gofabian/flo:0"),
+			Run: &Command{
+				Dir:  "workspace",
+				Path: "sh",
+				Args: []string{
+					"-exc",
+					strings.Join([]string{
+						"flo convert-pipeline -i .drone.yml > ../flo/pipeline.yml",
+					}, "\n"),
+				},
+			},
+			Inputs: []Input{{Name: "workspace"}},
+			Outputs: []Output{
+				{Name: "workspace"},
+				{Name: "flo"},
+			},
+		},
+		InputMapping: map[string]string{
+			"workspace": checkoutStep.Get,
+		},
+	}
+
+	setPipelineStep := Step{
+		SetPipeline: "self",
+		File:        "flo/pipeline.yml",
+	}
+
+	allSteps := []Step{*checkoutStep, floAdapterStep, setPipelineStep}
+	job := Job{
+		Name: fmt.Sprintf("maintenance-%s", dronePipeline.Name),
+		Plan: allSteps,
+	}
+	return &job, nil
+}
+
+func CreateBuildJob(dronePipeline *drone.Pipeline, checkoutStep *Step) (*Job, error) {
+	taskSteps := createTaskSteps(checkoutStep, dronePipeline)
+	allSteps := append([]Step{*checkoutStep}, taskSteps...)
 
 	job := Job{
 		Name: dronePipeline.Name,
 		Plan: allSteps,
 	}
-	pipeline := Pipeline{
-		Resources: []Resource{*gitResource},
-		Jobs:      []Job{job},
-	}
-	return &pipeline, nil
+	return &job, nil
 }
 
 func createGitResource(dronePipeline *drone.Pipeline) (*Resource, error) {
@@ -52,30 +100,27 @@ func createGitResource(dronePipeline *drone.Pipeline) (*Resource, error) {
 	return &gitResource, nil
 }
 
-func createTaskSteps(gitResource *Resource, dronePipeline *drone.Pipeline) []Step {
+func createTaskSteps(checkoutStep *Step, dronePipeline *drone.Pipeline) []Step {
 	taskSteps := make([]Step, len(dronePipeline.Steps))
 
-	previousWorkspace := gitResource.Name
+	previousWorkspace := checkoutStep.Get
 	for i, droneStep := range dronePipeline.Steps {
-		nextWorkspace := fmt.Sprintf("%s%d", workspaceName, i+1)
+		nextWorkspace := fmt.Sprintf("workspace%d", i+1)
 
 		taskSteps[i] = Step{
 			Task: droneStep.Name,
 			Config: &Task{
-				Platform: Linux,
-				ImageResource: ImageResource{
-					Type:   "registry-image",
-					Source: createSourceFromImage(droneStep.Image),
-				},
-				Run:     createCommand(&droneStep),
-				Inputs:  []Input{{Name: workspaceName}},
-				Outputs: []Output{{Name: workspaceName}},
+				Platform:      Linux,
+				ImageResource: *createImageResource(droneStep.Image),
+				Run:           createCommand(droneStep.Commands),
+				Inputs:        []Input{{Name: "workspace"}},
+				Outputs:       []Output{{Name: "workspace"}},
 			},
 			InputMapping: map[string]string{
-				workspaceName: previousWorkspace,
+				"workspace": previousWorkspace,
 			},
 			OutputMapping: map[string]string{
-				workspaceName: nextWorkspace,
+				"workspace": nextWorkspace,
 			},
 		}
 
@@ -85,58 +130,60 @@ func createTaskSteps(gitResource *Resource, dronePipeline *drone.Pipeline) []Ste
 	return taskSteps
 }
 
-func createSourceFromImage(image string) ImageSource {
+func createImageResource(image string) *ImageResource {
+	return &ImageResource{
+		Type:   "registry-image",
+		Source: *createSourceFromImage(image),
+	}
+}
+
+func createSourceFromImage(image string) *ImageSource {
 	imageElements := strings.SplitN(image, ":", 2)
 	repository := imageElements[0]
 	var tag string
 	if len(imageElements) > 1 {
 		tag = imageElements[1]
 	}
-	return ImageSource{
+	return &ImageSource{
 		Repository: repository,
 		Tag:        tag,
 	}
 }
 
-func createCommand(droneStep *drone.Step) *Command {
-	switch len(droneStep.Commands) {
+func createCommand(script []string) *Command {
+	switch len(script) {
 	case 0:
-		return createPluginCommand(droneStep)
+		return nil
 	case 1:
-		return createSingleCommand(droneStep)
+		return createSingleCommand(script)
 	default:
-		return createMultiCommand(droneStep)
+		return createMultiCommand(script)
 	}
 }
 
-func createPluginCommand(droneStep *drone.Step) *Command {
-	// todo: plugin task
-	panic(errors.New("Drone plugins not implemented"))
-}
-
-func createSingleCommand(droneStep *drone.Step) *Command {
-	elements := strings.SplitN(droneStep.Commands[0], " ", 2)
+func createSingleCommand(script []string) *Command {
+	elements := strings.SplitN(script[0], " ", 2)
 
 	switch len(elements) {
 	case 0:
 		return &Command{
-			Dir:  workspaceName,
+			Dir:  "workspace",
 			Path: "",
 		}
 	default:
 		return &Command{
-			Dir:  workspaceName,
+			Dir:  "workspace",
 			Path: elements[0],
 			Args: elements[1:],
 		}
 	}
 }
 
-func createMultiCommand(droneStep *drone.Step) *Command {
-	script := strings.Join(droneStep.Commands, "\n")
+func createMultiCommand(script []string) *Command {
+	text := strings.Join(script, "\n")
 	return &Command{
-		Dir:  workspaceName,
+		Dir:  "workspace",
 		Path: "sh",
-		Args: []string{"-exc", script},
+		Args: []string{"-exc", text},
 	}
 }
