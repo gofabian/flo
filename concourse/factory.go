@@ -2,11 +2,14 @@ package concourse
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gofabian/flo/drone"
 	"github.com/gofabian/flo/git"
 )
+
+const workspaceName = "workspace"
 
 func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
 	gitRepository, err := git.GetRepository()
@@ -29,7 +32,10 @@ func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
 		Trigger: true,
 	}
 
+	previousWorkspace := gitResource.Name
 	for i, droneStep := range dronePipeline.Steps {
+		nextWorkspace := fmt.Sprintf("%s%d", workspaceName, i+1)
+
 		concourseSteps[i+1] = Step{
 			Task: droneStep.Name,
 			Config: &Task{
@@ -38,9 +44,19 @@ func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
 					Type:   "registry-image",
 					Source: createSourceFromImage(droneStep.Image),
 				},
-				Run: createCommand(&droneStep),
+				Run:     createCommand(&droneStep),
+				Inputs:  []Input{{Name: workspaceName}},
+				Outputs: []Output{{Name: workspaceName}},
+			},
+			InputMapping: map[string]string{
+				workspaceName: previousWorkspace,
+			},
+			OutputMapping: map[string]string{
+				workspaceName: nextWorkspace,
 			},
 		}
+
+		previousWorkspace = nextWorkspace
 	}
 
 	job := Job{
@@ -89,10 +105,12 @@ func createSingleCommand(droneStep *drone.Step) *Command {
 	switch len(elements) {
 	case 0:
 		return &Command{
+			Dir:  workspaceName,
 			Path: "",
 		}
 	default:
 		return &Command{
+			Dir:  workspaceName,
 			Path: elements[0],
 			Args: elements[1:],
 		}
@@ -102,6 +120,7 @@ func createSingleCommand(droneStep *drone.Step) *Command {
 func createMultiCommand(droneStep *drone.Step) *Command {
 	script := strings.Join(droneStep.Commands, "\n")
 	return &Command{
+		Dir:  workspaceName,
 		Path: "sh",
 		Args: []string{"-exc", script},
 	}

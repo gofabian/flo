@@ -1,10 +1,10 @@
 package concourse
 
 type Pipeline struct {
-	Jobs          []Job
-	Resources     []Resource     `yaml:"resources,omitempty"`
-	ResourceTypes []ResourceType `yaml:"resource_types,omitempty"`
 	Groups        []GroupConfig  `yaml:"groups,omitempty"`
+	ResourceTypes []ResourceType `yaml:"resource_types,omitempty"`
+	Resources     []Resource     `yaml:"resources,omitempty"`
+	Jobs          []Job
 }
 
 type Job struct {
