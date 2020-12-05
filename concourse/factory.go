@@ -12,6 +12,30 @@ import (
 const workspaceName = "workspace"
 
 func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
+	gitResource, err := createGitResource(dronePipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	checkoutStep := Step{
+		Get:     gitResource.Name,
+		Trigger: true,
+	}
+	taskSteps := createTaskSteps(gitResource, dronePipeline)
+	allSteps := append([]Step{checkoutStep}, taskSteps...)
+
+	job := Job{
+		Name: dronePipeline.Name,
+		Plan: allSteps,
+	}
+	pipeline := Pipeline{
+		Resources: []Resource{*gitResource},
+		Jobs:      []Job{job},
+	}
+	return &pipeline, nil
+}
+
+func createGitResource(dronePipeline *drone.Pipeline) (*Resource, error) {
 	gitRepository, err := git.GetRepository()
 	if err != nil {
 		return nil, err
@@ -25,18 +49,17 @@ func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
 			"branch": gitRepository.Branch,
 		},
 	}
+	return &gitResource, nil
+}
 
-	concourseSteps := make([]Step, len(dronePipeline.Steps)+1)
-	concourseSteps[0] = Step{
-		Get:     gitResource.Name,
-		Trigger: true,
-	}
+func createTaskSteps(gitResource *Resource, dronePipeline *drone.Pipeline) []Step {
+	taskSteps := make([]Step, len(dronePipeline.Steps))
 
 	previousWorkspace := gitResource.Name
 	for i, droneStep := range dronePipeline.Steps {
 		nextWorkspace := fmt.Sprintf("%s%d", workspaceName, i+1)
 
-		concourseSteps[i+1] = Step{
+		taskSteps[i] = Step{
 			Task: droneStep.Name,
 			Config: &Task{
 				Platform: Linux,
@@ -59,15 +82,7 @@ func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
 		previousWorkspace = nextWorkspace
 	}
 
-	job := Job{
-		Name: dronePipeline.Name,
-		Plan: concourseSteps,
-	}
-	pipeline := Pipeline{
-		Resources: []Resource{gitResource},
-		Jobs:      []Job{job},
-	}
-	return &pipeline, nil
+	return taskSteps
 }
 
 func createSourceFromImage(image string) ImageSource {
