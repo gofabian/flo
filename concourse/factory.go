@@ -13,15 +13,11 @@ func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
 	if err != nil {
 		return nil, err
 	}
-	checkoutStep := Step{
-		Get:     gitResource.Name,
-		Trigger: true,
-	}
-	buildJob, err := CreateBuildJob(dronePipeline, &checkoutStep)
+	buildJob, err := CreateBuildJob(dronePipeline, gitResource)
 	if err != nil {
 		return nil, err
 	}
-	maintenanceJob, err := CreateMaintenanceJob(dronePipeline, &checkoutStep)
+	maintenanceJob, err := CreateMaintenanceJob(dronePipeline, gitResource)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +28,11 @@ func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
 	return &pipeline, nil
 }
 
-func CreateMaintenanceJob(dronePipeline *drone.Pipeline, checkoutStep *Step) (*Job, error) {
+func CreateMaintenanceJob(dronePipeline *drone.Pipeline, gitResource *Resource) (*Job, error) {
+	checkoutStep := Step{
+		Get:     gitResource.Name,
+		Trigger: true,
+	}
 	floAdapterStep := Step{
 		Task: "flo-adapter",
 		Config: &Task{
@@ -55,16 +55,19 @@ func CreateMaintenanceJob(dronePipeline *drone.Pipeline, checkoutStep *Step) (*J
 			},
 		},
 		InputMapping: map[string]string{
-			"workspace": checkoutStep.Get,
+			"workspace": gitResource.Name,
 		},
 	}
 
 	setPipelineStep := Step{
 		SetPipeline: "self",
 		File:        "flo/pipeline.yml",
+		Vars: map[string]string{
+			"GIT_BRANCH": "((GIT_BRANCH))",
+		},
 	}
 
-	allSteps := []Step{*checkoutStep, floAdapterStep, setPipelineStep}
+	allSteps := []Step{checkoutStep, floAdapterStep, setPipelineStep}
 	job := Job{
 		Name: fmt.Sprintf("maintenance-%s", dronePipeline.Name),
 		Plan: allSteps,
@@ -72,9 +75,14 @@ func CreateMaintenanceJob(dronePipeline *drone.Pipeline, checkoutStep *Step) (*J
 	return &job, nil
 }
 
-func CreateBuildJob(dronePipeline *drone.Pipeline, checkoutStep *Step) (*Job, error) {
-	taskSteps := createTaskSteps(checkoutStep, dronePipeline)
-	allSteps := append([]Step{*checkoutStep}, taskSteps...)
+func CreateBuildJob(dronePipeline *drone.Pipeline, gitResource *Resource) (*Job, error) {
+	checkoutStep := Step{
+		Get:     gitResource.Name,
+		Trigger: true,
+		Passed:  []string{fmt.Sprintf("maintenance-%s", dronePipeline.Name)},
+	}
+	taskSteps := createTaskSteps(gitResource.Name, dronePipeline)
+	allSteps := append([]Step{checkoutStep}, taskSteps...)
 
 	job := Job{
 		Name: dronePipeline.Name,
@@ -94,16 +102,16 @@ func createGitResource(dronePipeline *drone.Pipeline) (*Resource, error) {
 		Type: "git",
 		Source: map[string]string{
 			"uri":    gitRepository.URL,
-			"branch": gitRepository.Branch,
+			"branch": "((GIT_BRANCH))", //gitRepository.Branch,
 		},
 	}
 	return &gitResource, nil
 }
 
-func createTaskSteps(checkoutStep *Step, dronePipeline *drone.Pipeline) []Step {
+func createTaskSteps(gitWorkspace string, dronePipeline *drone.Pipeline) []Step {
 	taskSteps := make([]Step, len(dronePipeline.Steps))
 
-	previousWorkspace := checkoutStep.Get
+	previousWorkspace := gitWorkspace
 	for i, droneStep := range dronePipeline.Steps {
 		nextWorkspace := fmt.Sprintf("workspace%d", i+1)
 

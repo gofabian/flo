@@ -13,6 +13,8 @@ RUN go build flo.go
 
 FROM alpine:3.12
 
+RUN apk update && apk upgrade && apk add --no-cache git
+
 WORKDIR /app
 ENV PATH="/app:$PATH"
 

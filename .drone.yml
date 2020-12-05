@@ -6,13 +6,13 @@ steps:
 - name: build
   image: maven
   commands:
-  - ls -l
-  - touch EINS.txt
+  - mvn -version
+  - java -version
 
 - name: frontend
   image: maven:3-jdk-10
   commands:
-  - ls -l
+  - mvn -version
   settings:
     user: fabman
     tags:

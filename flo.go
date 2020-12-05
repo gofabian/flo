@@ -8,7 +8,6 @@ import (
 	"github.com/gofabian/flo/cli"
 )
 
-
 func main() {
 	commands := make(map[string]func(*flag.FlagSet, []string) error)
 	commands["convert-pipeline"] = cli.ConvertPipeline
@@ -39,7 +38,7 @@ func main() {
 			flagSet.Bool("h", false, "Print help text")
 			err := execute(flagSet, os.Args[2:])
 			if err != nil {
-				fmt.Printf("Error: %w", err)
+				fmt.Println(err.Error())
 				os.Exit(1)
 			}
 			return

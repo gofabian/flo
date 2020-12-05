@@ -35,12 +35,12 @@ func GetRepository() (*Repository, error) {
 		return nil, err
 	}
 
-	branch, err := readBranch(".git/HEAD")
+	/*branch, err := readBranch(".git/HEAD")
 	if err != nil {
 		return nil, err
-	}
+	}*/
 
-	return &Repository{URL: url, Branch: branch}, nil
+	return &Repository{URL: url, Branch: ""}, nil
 }
 
 func readRemoteUrl(pathToGitConfig string) (string, error) {
