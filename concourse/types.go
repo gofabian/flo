@@ -31,7 +31,7 @@ type Resource struct {
 type ResourceType struct {
 	Name       string
 	Type       string
-	Source     map[string]string
+	Source     ImageSource       `yaml:"source,flow`
 	Privileged *bool             `yaml:"privileged,omitempty"`
 	Params     map[string]string `yaml:"params,omitempty"`
 	CheckEvery string            `yaml:"check_every,omitempty"`

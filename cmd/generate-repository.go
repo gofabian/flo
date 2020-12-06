@@ -1,19 +1,17 @@
 package cmd
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"os"
 
 	"github.com/gofabian/flo/concourse"
-	"github.com/gofabian/flo/drone"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
-var generateBranchCmd = &cobra.Command{
-	Use: "branch -g url -b branch -o pipeline.yml",
+var generateRepoCmd = &cobra.Command{
+	Use: "repository -g url -b branch -o pipeline.yml",
 	Example: `flo generate branch -g https://github.com/org/repo.git -b main
 flo generate branch -g git@github.com:org/repo.git -b develop -j all -i .drone.yml`,
 	Short: "Generate a Concourse pipeline for a specific branch",
@@ -21,25 +19,25 @@ flo generate branch -g git@github.com:org/repo.git -b develop -j all -i .drone.y
 		"document to stdout by default.",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return generateBranch()
+		return generateRepository()
 	},
 }
 
-var generateBranchOptions = &struct {
+var generateRepoOptions = &struct {
 	gitURL       string
-	branch       string
+	branches     []string
 	jobs         string
 	pathToInput  string
 	pathToOutput string
 }{}
 
 func init() {
-	cmd := generateBranchCmd
-	options := generateBranchOptions
+	cmd := generateRepoCmd
+	options := generateRepoOptions
 	cmd.Flags().StringVarP(&options.gitURL, "git-url", "g", "",
 		"URL to remote git repository")
-	cmd.Flags().StringVarP(&options.branch, "branch", "b", "",
-		"git branch name")
+	cmd.Flags().StringSliceVarP(&options.branches, "branch", "b", []string{},
+		"git branch names")
 	cmd.Flags().StringVarP(&options.jobs, "jobs", "j", "refresh",
 		`Concourse jobs to generate:
 "refresh": job that auto-updates the pipeline
@@ -56,47 +54,16 @@ func init() {
 	cmd.MarkFlagRequired("output")
 }
 
-func generateBranch() error {
-	options := generateBranchOptions
+func generateRepository() error {
+	options := generateRepoOptions
 
-	if options.gitURL == "" || options.branch == "" || options.jobs == "" || options.pathToInput == "" || options.pathToOutput == "" {
+	if options.gitURL == "" || len(options.branches) == 0 || options.jobs == "" || options.pathToInput == "" || options.pathToOutput == "" {
 		return errors.New("Missing flags")
 	}
 
-	jobType := concourse.JobType(options.jobs)
-	var dronePipeline *drone.Pipeline
-
-	if jobType != concourse.Refresh {
-		// open file
-		inputFile, err := os.Open(options.pathToInput)
-		if err != nil {
-			return fmt.Errorf("cannot open '%s': %w", options.pathToInput, err)
-		}
-		defer inputFile.Close()
-
-		// decode Drone pipeline
-		reader := bufio.NewReader(inputFile)
-		dronePipeline := &drone.Pipeline{}
-		decoder := yaml.NewDecoder(reader)
-		decoder.KnownFields(true)
-		err = decoder.Decode(dronePipeline)
-		if err != nil {
-			return fmt.Errorf("cannot decode drone pipeline: %w", err)
-		}
-
-		// validate Drone pipeline
-		errs := drone.ValidatePipeline(dronePipeline)
-		if len(errs) > 0 {
-			msg := "Validation errors: "
-			for _, e := range errs {
-				msg += ", " + e.Error()
-			}
-			return errors.New(msg)
-		}
-	}
-
 	// create Concourse pipeline
-	concoursePipeline, err := concourse.CreateBranchPipeline(dronePipeline, jobType)
+	jobType := concourse.JobType(options.jobs)
+	concoursePipeline, err := concourse.CreateRepositoryPipeline(jobType, options.branches)
 	if err != nil {
 		return err
 	}

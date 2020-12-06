@@ -15,7 +15,7 @@ var SetupCmd = &cobra.Command{
 	},
 }
 
-var setupOptions = struct {
+var setupOptions = &struct {
 	flyTarget        string
 	gitURL           string
 	localGitProtocol string

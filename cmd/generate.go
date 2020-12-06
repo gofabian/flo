@@ -16,5 +16,5 @@ var GenerateCmd = &cobra.Command{
 
 func init() {
 	GenerateCmd.AddCommand(generateBranchCmd)
-	//GenerateCmd.AddCommand(generateRepositoryCmd)
+	GenerateCmd.AddCommand(generateRepoCmd)
 }

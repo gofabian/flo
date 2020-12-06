@@ -7,30 +7,25 @@ import (
 	"github.com/gofabian/flo/drone"
 )
 
-type JobType string
-
-const (
-	Refresh JobType = "refresh"
-	Build   JobType = "build"
-	All     JobType = "all"
-)
-
 func CreateBranchPipeline(dronePipeline *drone.Pipeline, jobType JobType) (*Pipeline, error) {
-	gitResource, err := createGitResource()
-	if err != nil {
-		return nil, err
+	gitResource := &Resource{
+		Name: "checkout",
+		Type: "git",
+		Source: map[string]string{
+			"uri":    "((GIT_URL))",
+			"branch": "((GIT_BRANCH))",
+		},
 	}
-
-	refreshJob := CreateRefreshJob(dronePipeline, gitResource)
-	buildJob := CreateBuildJob(dronePipeline, gitResource)
 
 	var jobs []Job
 	switch jobType {
 	case Refresh:
-		jobs = []Job{*refreshJob}
+		jobs = []Job{*CreateBranchRefreshJob(gitResource)}
 	case Build:
-		jobs = []Job{*buildJob}
+		jobs = []Job{*CreateBranchBuildJob(dronePipeline, gitResource)}
 	case All:
+		refreshJob := CreateBranchRefreshJob(gitResource)
+		buildJob := CreateBranchBuildJob(dronePipeline, gitResource)
 		buildJob.Plan[0].Passed = []string{refreshJob.Name}
 		jobs = []Job{*refreshJob, *buildJob}
 	default:
@@ -44,19 +39,7 @@ func CreateBranchPipeline(dronePipeline *drone.Pipeline, jobType JobType) (*Pipe
 	return &pipeline, nil
 }
 
-func createGitResource() (*Resource, error) {
-	gitResource := Resource{
-		Name: "branch-git",
-		Type: "git",
-		Source: map[string]string{
-			"uri":    "((GIT_URL))",
-			"branch": "((GIT_BRANCH))",
-		},
-	}
-	return &gitResource, nil
-}
-
-func CreateRefreshJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job {
+func CreateBranchRefreshJob(gitResource *Resource) *Job {
 	checkoutStep := Step{
 		Get:     gitResource.Name,
 		Trigger: true,
@@ -71,9 +54,11 @@ func CreateRefreshJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job
 				Path: "sh",
 				Args: []string{
 					"-exc",
-					`flo generate branch -g "((GIT_URL))" -b "((GIT_BRANCH))" \
-						-i .drone.yml -o ../flo/pipeline.yml \
-						-j all`,
+					`#
+flo generate branch -g "((GIT_URL))" -b "((GIT_BRANCH))" \
+-i .drone.yml -o ../flo/pipeline.yml \
+-j all
+cat ../flo/pipeline.yml`,
 				},
 			},
 			Inputs:  []Input{{Name: "workspace"}},
@@ -97,7 +82,7 @@ func CreateRefreshJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job
 	}
 }
 
-func CreateBuildJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job {
+func CreateBranchBuildJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job {
 	checkoutStep := Step{
 		Get:     gitResource.Name,
 		Trigger: true,
@@ -130,26 +115,6 @@ func createTaskSteps(gitWorkspace string, dronePipeline *drone.Pipeline) []Step 
 
 	taskSteps[0].InputMapping = map[string]string{"workspace": gitWorkspace}
 	return taskSteps
-}
-
-func createImageResource(image string) *ImageResource {
-	return &ImageResource{
-		Type:   "registry-image",
-		Source: *createSourceFromImage(image),
-	}
-}
-
-func createSourceFromImage(image string) *ImageSource {
-	imageElements := strings.SplitN(image, ":", 2)
-	repository := imageElements[0]
-	var tag string
-	if len(imageElements) > 1 {
-		tag = imageElements[1]
-	}
-	return &ImageSource{
-		Repository: repository,
-		Tag:        tag,
-	}
 }
 
 func createCommand(script []string) *Command {
