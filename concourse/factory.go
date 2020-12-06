@@ -5,36 +5,59 @@ import (
 	"strings"
 
 	"github.com/gofabian/flo/drone"
-	"github.com/gofabian/flo/git"
 )
 
-func CreatePipeline(dronePipeline *drone.Pipeline) (*Pipeline, error) {
-	gitResource, err := createGitResource(dronePipeline)
+type JobType string
+
+const (
+	Refresh JobType = "refresh"
+	Build   JobType = "build"
+)
+
+func CreateBranchPipeline(dronePipeline *drone.Pipeline, jobTypes []JobType) (*Pipeline, error) {
+	gitResource, err := createGitResource()
 	if err != nil {
 		return nil, err
 	}
-	buildJob, err := CreateBuildJob(dronePipeline, gitResource)
-	if err != nil {
-		return nil, err
+
+	jobs := []Job{}
+	for _, jobType := range jobTypes {
+		switch jobType {
+		case Refresh:
+			job := CreateRefreshJob(dronePipeline, gitResource)
+			jobs = append(jobs, *job)
+		case Build:
+			job := CreateBuildJob(dronePipeline, gitResource)
+			jobs = append(jobs, *job)
+		}
 	}
-	maintenanceJob, err := CreateMaintenanceJob(dronePipeline, gitResource)
-	if err != nil {
-		return nil, err
-	}
+
 	pipeline := Pipeline{
 		Resources: []Resource{*gitResource},
-		Jobs:      []Job{*maintenanceJob, *buildJob},
+		Jobs:      jobs,
 	}
 	return &pipeline, nil
 }
 
-func CreateMaintenanceJob(dronePipeline *drone.Pipeline, gitResource *Resource) (*Job, error) {
+func createGitResource() (*Resource, error) {
+	gitResource := Resource{
+		Name: "branch-git",
+		Type: "git",
+		Source: map[string]string{
+			"uri":    "((GIT_URL))",
+			"branch": "((GIT_BRANCH))",
+		},
+	}
+	return &gitResource, nil
+}
+
+func CreateRefreshJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job {
 	checkoutStep := Step{
 		Get:     gitResource.Name,
 		Trigger: true,
 	}
 	floAdapterStep := Step{
-		Task: "flo-adapter",
+		Task: "generate",
 		Config: &Task{
 			Platform:      Linux,
 			ImageResource: *createImageResource("gofabian/flo:0"),
@@ -43,9 +66,9 @@ func CreateMaintenanceJob(dronePipeline *drone.Pipeline, gitResource *Resource) 
 				Path: "sh",
 				Args: []string{
 					"-exc",
-					strings.Join([]string{
-						"flo convert-pipeline -i .drone.yml > ../flo/pipeline.yml",
-					}, "\n"),
+					`flo generate branch -g "((GIT_URL))" -b "((GIT_BRANCH))" \
+						-i .drone.yml -o ../flo/pipeline.yml \
+						-j all`,
 				},
 			},
 			Inputs: []Input{{Name: "workspace"}},
@@ -63,23 +86,22 @@ func CreateMaintenanceJob(dronePipeline *drone.Pipeline, gitResource *Resource) 
 		SetPipeline: "self",
 		File:        "flo/pipeline.yml",
 		Vars: map[string]string{
+			"GIT_URL":    "((GIT_URL))",
 			"GIT_BRANCH": "((GIT_BRANCH))",
 		},
 	}
 
-	allSteps := []Step{checkoutStep, floAdapterStep, setPipelineStep}
-	job := Job{
-		Name: fmt.Sprintf("maintenance-%s", dronePipeline.Name),
-		Plan: allSteps,
+	return &Job{
+		Name: "refresh",
+		Plan: []Step{checkoutStep, floAdapterStep, setPipelineStep},
 	}
-	return &job, nil
 }
 
-func CreateBuildJob(dronePipeline *drone.Pipeline, gitResource *Resource) (*Job, error) {
+func CreateBuildJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job {
 	checkoutStep := Step{
 		Get:     gitResource.Name,
 		Trigger: true,
-		Passed:  []string{fmt.Sprintf("maintenance-%s", dronePipeline.Name)},
+		Passed:  []string{"refresh"},
 	}
 	taskSteps := createTaskSteps(gitResource.Name, dronePipeline)
 	allSteps := append([]Step{checkoutStep}, taskSteps...)
@@ -88,24 +110,7 @@ func CreateBuildJob(dronePipeline *drone.Pipeline, gitResource *Resource) (*Job,
 		Name: dronePipeline.Name,
 		Plan: allSteps,
 	}
-	return &job, nil
-}
-
-func createGitResource(dronePipeline *drone.Pipeline) (*Resource, error) {
-	gitRepository, err := git.GetRepository()
-	if err != nil {
-		return nil, err
-	}
-
-	gitResource := Resource{
-		Name: dronePipeline.Name + "-git",
-		Type: "git",
-		Source: map[string]string{
-			"uri":    gitRepository.URL,
-			"branch": "((GIT_BRANCH))", //gitRepository.Branch,
-		},
-	}
-	return &gitResource, nil
+	return &job
 }
 
 func createTaskSteps(gitWorkspace string, dronePipeline *drone.Pipeline) []Step {
@@ -124,12 +129,8 @@ func createTaskSteps(gitWorkspace string, dronePipeline *drone.Pipeline) []Step 
 				Inputs:        []Input{{Name: "workspace"}},
 				Outputs:       []Output{{Name: "workspace"}},
 			},
-			InputMapping: map[string]string{
-				"workspace": previousWorkspace,
-			},
-			OutputMapping: map[string]string{
-				"workspace": nextWorkspace,
-			},
+			InputMapping:  map[string]string{"workspace": previousWorkspace},
+			OutputMapping: map[string]string{"workspace": nextWorkspace},
 		}
 
 		previousWorkspace = nextWorkspace
@@ -163,27 +164,25 @@ func createCommand(script []string) *Command {
 	case 0:
 		return nil
 	case 1:
-		return createSingleCommand(script)
+		return createSingleCommand(script[0])
 	default:
 		return createMultiCommand(script)
 	}
 }
 
-func createSingleCommand(script []string) *Command {
-	elements := strings.SplitN(script[0], " ", 2)
+func createSingleCommand(command string) *Command {
+	elements := strings.SplitN(command, " ", 2)
 
-	switch len(elements) {
-	case 0:
-		return &Command{
-			Dir:  "workspace",
-			Path: "",
-		}
-	default:
+	if len(elements) == 1 {
 		return &Command{
 			Dir:  "workspace",
 			Path: elements[0],
-			Args: elements[1:],
 		}
+	}
+	return &Command{
+		Dir:  "workspace",
+		Path: elements[0],
+		Args: elements[1:],
 	}
 }
 

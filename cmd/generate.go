@@ -10,11 +10,11 @@ var GenerateCmd = &cobra.Command{
 	Long:  "Generate a Concourse pipeline and output the YAML document to stdout by default.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Usage()
+		cmd.HelpFunc()(cmd, args)
 	},
 }
 
 func init() {
 	GenerateCmd.AddCommand(generateBranchCmd)
-	GenerateCmd.AddCommand(generateRepositoryCmd)
+	//GenerateCmd.AddCommand(generateRepositoryCmd)
 }

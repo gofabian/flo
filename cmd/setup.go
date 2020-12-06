@@ -11,7 +11,7 @@ var SetupCmd = &cobra.Command{
 	Long:    "Setup multi-branch pipeline in Concourse",
 	Args:    cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Usage()
+		cmd.HelpFunc()(cmd, args)
 	},
 }
 
