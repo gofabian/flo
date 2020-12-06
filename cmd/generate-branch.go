@@ -39,8 +39,9 @@ func init() {
 		"git branch name")
 	generateBranchCmd.Flags().StringVarP(&jobs, "jobs", "j", "refresh",
 		`Concourse jobs to generate:
-"refresh": pipeline will contain job to auto-update pipeline only
-"all": pipeline will contain refresh job and build job
+"refresh": job that auto-updates the pipeline
+"build": job that runs actual build steps
+"all": refresh + build jobs
 `)
 	generateBranchCmd.Flags().StringVarP(&pathToInput, "input", "i", ".drone.yml",
 		"path to Drone pipeline file")
@@ -85,13 +86,8 @@ func generateBranch() error {
 	}
 
 	// create Concourse pipeline
-	var jobTypes []concourse.JobType
-	if jobs == "all" {
-		jobTypes = []concourse.JobType{concourse.Refresh, concourse.Build}
-	} else {
-		jobTypes = []concourse.JobType{concourse.Refresh}
-	}
-	concoursePipeline, err := concourse.CreateBranchPipeline(dronePipeline, jobTypes)
+	jobType := concourse.JobType(jobs)
+	concoursePipeline, err := concourse.CreateBranchPipeline(dronePipeline, jobType)
 	if err != nil {
 		return err
 	}

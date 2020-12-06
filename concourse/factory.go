@@ -12,24 +12,29 @@ type JobType string
 const (
 	Refresh JobType = "refresh"
 	Build   JobType = "build"
+	All     JobType = "all"
 )
 
-func CreateBranchPipeline(dronePipeline *drone.Pipeline, jobTypes []JobType) (*Pipeline, error) {
+func CreateBranchPipeline(dronePipeline *drone.Pipeline, jobType JobType) (*Pipeline, error) {
 	gitResource, err := createGitResource()
 	if err != nil {
 		return nil, err
 	}
 
-	jobs := []Job{}
-	for _, jobType := range jobTypes {
-		switch jobType {
-		case Refresh:
-			job := CreateRefreshJob(dronePipeline, gitResource)
-			jobs = append(jobs, *job)
-		case Build:
-			job := CreateBuildJob(dronePipeline, gitResource)
-			jobs = append(jobs, *job)
-		}
+	refreshJob := CreateRefreshJob(dronePipeline, gitResource)
+	buildJob := CreateBuildJob(dronePipeline, gitResource)
+
+	var jobs []Job
+	switch jobType {
+	case Refresh:
+		jobs = []Job{*refreshJob}
+	case Build:
+		jobs = []Job{*buildJob}
+	case All:
+		buildJob.Plan[0].Passed = []string{refreshJob.Name}
+		jobs = []Job{*refreshJob, *buildJob}
+	default:
+		return nil, fmt.Errorf("Unknown job type: %s", jobType)
 	}
 
 	pipeline := Pipeline{
@@ -56,7 +61,7 @@ func CreateRefreshJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job
 		Get:     gitResource.Name,
 		Trigger: true,
 	}
-	floAdapterStep := Step{
+	generateStep := Step{
 		Task: "generate",
 		Config: &Task{
 			Platform:      Linux,
@@ -71,15 +76,10 @@ func CreateRefreshJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job
 						-j all`,
 				},
 			},
-			Inputs: []Input{{Name: "workspace"}},
-			Outputs: []Output{
-				{Name: "workspace"},
-				{Name: "flo"},
-			},
+			Inputs:  []Input{{Name: "workspace"}},
+			Outputs: []Output{{Name: "workspace"}, {Name: "flo"}},
 		},
-		InputMapping: map[string]string{
-			"workspace": gitResource.Name,
-		},
+		InputMapping: map[string]string{"workspace": gitResource.Name},
 	}
 
 	setPipelineStep := Step{
@@ -93,7 +93,7 @@ func CreateRefreshJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job
 
 	return &Job{
 		Name: "refresh",
-		Plan: []Step{checkoutStep, floAdapterStep, setPipelineStep},
+		Plan: []Step{checkoutStep, generateStep, setPipelineStep},
 	}
 }
 
@@ -101,7 +101,6 @@ func CreateBuildJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job {
 	checkoutStep := Step{
 		Get:     gitResource.Name,
 		Trigger: true,
-		Passed:  []string{"refresh"},
 	}
 	taskSteps := createTaskSteps(gitResource.Name, dronePipeline)
 	allSteps := append([]Step{checkoutStep}, taskSteps...)
@@ -116,10 +115,7 @@ func CreateBuildJob(dronePipeline *drone.Pipeline, gitResource *Resource) *Job {
 func createTaskSteps(gitWorkspace string, dronePipeline *drone.Pipeline) []Step {
 	taskSteps := make([]Step, len(dronePipeline.Steps))
 
-	previousWorkspace := gitWorkspace
 	for i, droneStep := range dronePipeline.Steps {
-		nextWorkspace := fmt.Sprintf("workspace%d", i+1)
-
 		taskSteps[i] = Step{
 			Task: droneStep.Name,
 			Config: &Task{
@@ -129,13 +125,10 @@ func createTaskSteps(gitWorkspace string, dronePipeline *drone.Pipeline) []Step 
 				Inputs:        []Input{{Name: "workspace"}},
 				Outputs:       []Output{{Name: "workspace"}},
 			},
-			InputMapping:  map[string]string{"workspace": previousWorkspace},
-			OutputMapping: map[string]string{"workspace": nextWorkspace},
 		}
-
-		previousWorkspace = nextWorkspace
 	}
 
+	taskSteps[0].InputMapping = map[string]string{"workspace": gitWorkspace}
 	return taskSteps
 }
 
