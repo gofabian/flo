@@ -2,12 +2,8 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
-	"os"
 
-	"github.com/gofabian/flo/concourse"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var generateRepoCmd = &cobra.Command{
@@ -61,26 +57,27 @@ func generateRepository() error {
 		return errors.New("Missing flags")
 	}
 
-	// create Concourse pipeline
-	jobType := concourse.JobType(options.jobs)
-	concoursePipeline, err := concourse.CreateRepositoryPipeline(jobType, options.branches)
-	if err != nil {
-		return err
-	}
+	/*
+		// create Concourse pipeline
+		jobType := concourse.JobType(options.jobs)
+		concoursePipeline, err := concourse.CreateRepositoryPipeline(jobType, options.branches)
+		if err != nil {
+			return err
+		}
 
-	// output file
-	outputFile, err := os.Create(options.pathToOutput)
-	if err != nil {
-		return fmt.Errorf("cannot open '%s': %w", options.pathToOutput, err)
-	}
-	defer outputFile.Close()
+		// output file
+		outputFile, err := os.Create(options.pathToOutput)
+		if err != nil {
+			return fmt.Errorf("cannot open '%s': %w", options.pathToOutput, err)
+		}
+		defer outputFile.Close()
 
-	// write to file
-	encoder := yaml.NewEncoder(outputFile)
-	err = encoder.Encode(concoursePipeline)
-	if err != nil {
-		return fmt.Errorf("cannot encode concourse pipeline: %w", err)
-	}
-
+		// write to file
+		encoder := yaml.NewEncoder(outputFile)
+		err = encoder.Encode(concoursePipeline)
+		if err != nil {
+			return fmt.Errorf("cannot encode concourse pipeline: %w", err)
+		}
+	*/
 	return nil
 }

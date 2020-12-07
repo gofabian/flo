@@ -63,10 +63,11 @@ func generateBranch() error {
 		return errors.New("Missing flags")
 	}
 
-	jobType := concourse.JobType(options.jobs)
+	jobType := JobType(options.jobs)
+
 	var dronePipeline *drone.Pipeline
 
-	if jobType != concourse.Refresh {
+	if jobType != Refresh {
 		// open file
 		inputFile, err := os.Open(options.pathToInput)
 		if err != nil {
@@ -95,10 +96,16 @@ func generateBranch() error {
 		}
 	}
 
-	// create Concourse pipeline
-	concoursePipeline, err := concourse.CreateBranchPipeline(dronePipeline, jobType)
-	if err != nil {
-		return err
+	var templateName string
+	switch jobType {
+	case All:
+		templateName = "full-pipeline"
+	case Refresh:
+		templateName = "refresh-pipeline"
+	case Build:
+		templateName = "build-pipeline"
+	default:
+		return fmt.Errorf("invalid jobs value: %s", jobType)
 	}
 
 	// output file
@@ -108,11 +115,10 @@ func generateBranch() error {
 	}
 	defer outputFile.Close()
 
-	// write to file
-	encoder := yaml.NewEncoder(outputFile)
-	err = encoder.Encode(concoursePipeline)
+	// write Concourse pipeline
+	err = concourse.CreateBranchPipeline(templateName, dronePipeline, outputFile)
 	if err != nil {
-		return fmt.Errorf("cannot encode concourse pipeline: %w", err)
+		return err
 	}
 
 	return nil
