@@ -76,7 +76,7 @@ func generateBranch() error {
 
 		// decode Drone pipeline
 		reader := bufio.NewReader(inputFile)
-		dronePipeline := &drone.Pipeline{}
+		dronePipeline = &drone.Pipeline{}
 		decoder := yaml.NewDecoder(reader)
 		decoder.KnownFields(true)
 		err = decoder.Decode(dronePipeline)
