@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
+	"os"
 
+	"github.com/gofabian/flo/concourse"
 	"github.com/spf13/cobra"
 )
 
@@ -57,27 +60,32 @@ func generateRepository() error {
 		return errors.New("Missing flags")
 	}
 
-	/*
-		// create Concourse pipeline
-		jobType := concourse.JobType(options.jobs)
-		concoursePipeline, err := concourse.CreateRepositoryPipeline(jobType, options.branches)
-		if err != nil {
-			return err
-		}
+	jobType := JobType(options.jobs)
 
-		// output file
-		outputFile, err := os.Create(options.pathToOutput)
-		if err != nil {
-			return fmt.Errorf("cannot open '%s': %w", options.pathToOutput, err)
-		}
-		defer outputFile.Close()
+	var templateName string
+	switch jobType {
+	case All:
+		templateName = "full-pipeline"
+	case Refresh:
+		templateName = "refresh-pipeline"
+	case Build:
+		templateName = "build-pipeline"
+	default:
+		return fmt.Errorf("invalid jobs value: %s", jobType)
+	}
 
-		// write to file
-		encoder := yaml.NewEncoder(outputFile)
-		err = encoder.Encode(concoursePipeline)
-		if err != nil {
-			return fmt.Errorf("cannot encode concourse pipeline: %w", err)
-		}
-	*/
+	// output file
+	outputFile, err := os.Create(options.pathToOutput)
+	if err != nil {
+		return fmt.Errorf("cannot open '%s': %w", options.pathToOutput, err)
+	}
+	defer outputFile.Close()
+
+	// create Concourse pipeline
+	concourse.CreateRepositoryPipeline(templateName, options.branches, outputFile)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
