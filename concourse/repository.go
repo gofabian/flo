@@ -7,11 +7,22 @@ import (
 )
 
 type repository struct {
-	Branches []string
+	Branches []branch
+}
+
+type branch struct {
+	Name           string
+	HarmonizedName string
 }
 
 func CreateRepositoryPipeline(templateName string, branches []string, file *os.File) error {
-	cfg := repository{branches}
+	cfg := repository{}
+	cfg.Branches = make([]branch, len(branches))
+
+	for i, branch := range branches {
+		cfg.Branches[i].Name = branch
+		cfg.Branches[i].HarmonizedName = harmonizeName(branch)
+	}
 
 	t, err := template.New(templateName).Parse(repositoryPipelineTemplate)
 	if err != nil {

@@ -117,11 +117,11 @@ jobs:
                   -i .drone.yml -o ../flo/pipeline.yml -j refresh
                 cat ../flo/pipeline.yml
   {{- range .Branches}}
-      - set_pipeline: "{{.}}"
+      - set_pipeline: "{{.HarmonizedName}}"
         file: flo/pipeline.yml
         vars:
           GIT_URL: ((GIT_URL))
-          GIT_BRANCH: "{{.}}"
+          GIT_BRANCH: "{{.Name}}"
   {{- end}}
 {{- end}}
 
