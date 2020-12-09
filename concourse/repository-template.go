@@ -5,14 +5,14 @@ var repositoryPipelineTemplate = `
 {{define "full-pipeline" -}}
   {{template "header" . -}}
   {{template "jobs-header" . -}}
-  {{template "refresh-job" . -}}
+  {{template "self-update-job" . -}}
   {{template "build-job-header-passed" . -}}
   {{template "build-job-content" . -}}
 {{end}}
-{{define "refresh-pipeline" -}}
+{{define "self-update-pipeline" -}}
   {{template "header" . -}}
   {{template "jobs-header" . -}}
-  {{template "refresh-job" . -}}
+  {{template "self-update-job" . -}}
 {{end}}
 {{define "build-pipeline" -}}
   {{template "header" . -}}
@@ -24,13 +24,13 @@ var repositoryPipelineTemplate = `
 
 {{define "header" -}}
 resource_types:
-  - name: git-branches
+  - name: branches-resource-type
     type: registry-image
     source:
       repository: vito/git-branches-resource
 resources:
   - name: branches
-    type: git-branches
+    type: branches-resource-type
     source:
       uri: ((GIT_URL))
 {{- end}}
@@ -41,12 +41,12 @@ jobs:
 {{- end}}
 
 
-{{define "refresh-job"}}
-  - name: refresh
+{{define "self-update-job"}}
+  - name: self-update
     plan:
       - get: branches
         trigger: true
-      - task: generate
+      - task: generate-multibranch-pipeline
         input_mapping:
           workspace: branches
         config:
@@ -84,17 +84,17 @@ jobs:
 {{- end}}
 
 {{define "build-job-header-passed"}}
-  - name: pipelines
+  - name: update
     plan:
       - get: branches
         trigger: true
         passed:
-          - refresh
+          - self-update
 {{- end}}
 
 
 {{define "build-job-content"}}
-      - task: generate
+      - task: generate-branch-pipeline
         input_mapping:
           workspace: branches
         config:
@@ -117,7 +117,7 @@ jobs:
                   -i .drone.yml -o ../flo/pipeline.yml -j refresh
                 cat ../flo/pipeline.yml
   {{- range .Branches}}
-      - set_pipeline: "{{.HarmonizedName}}"
+      - set_pipeline: "branch-{{.HarmonizedName}}"
         file: flo/pipeline.yml
         vars:
           GIT_URL: ((GIT_URL))

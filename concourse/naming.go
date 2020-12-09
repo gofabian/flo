@@ -10,7 +10,7 @@ var reSuffix = regexp.MustCompile(`/$`)
 var reFirstChar = regexp.MustCompile(`^[^\p{Ll}\p{Lt}\p{Lm}\p{Lo}]+`)
 var reChars = regexp.MustCompile(`[^\p{Ll}\p{Lt}\p{Lm}\p{Lo}\d\-.]+`)
 
-func harmonizeGitUrl(name string) string {
+func harmonizeGitURL(name string) string {
 	harmonized := strings.ToLower(name)
 	harmonized = rePrefix.ReplaceAllString(harmonized, "")
 	harmonized = reSuffix.ReplaceAllString(harmonized, "")

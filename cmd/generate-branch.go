@@ -101,7 +101,7 @@ func generateBranch() error {
 	case All:
 		templateName = "full-pipeline"
 	case Refresh:
-		templateName = "refresh-pipeline"
+		templateName = "self-update-pipeline"
 	case Build:
 		templateName = "build-pipeline"
 	default:

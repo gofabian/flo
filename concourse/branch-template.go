@@ -5,14 +5,14 @@ var branchPipelineTemplate = `
 {{define "full-pipeline" -}}
   {{template "header" . -}}
   {{template "jobs-header" . -}}
-  {{template "refresh-job" . -}}
+  {{template "self-update-job" . -}}
   {{template "build-job-header-passed" . -}}
   {{template "build-job-content" . -}}
 {{end}}
-{{define "refresh-pipeline" -}}
+{{define "self-update-pipeline" -}}
   {{template "header" . -}}
   {{template "jobs-header" . -}}
-  {{template "refresh-job" . -}}
+  {{template "self-update-job" . -}}
 {{end}}
 {{define "build-pipeline" -}}
   {{template "header" . -}}
@@ -37,12 +37,12 @@ jobs:
 {{- end}}
 
 
-{{define "refresh-job"}}
-  - name: refresh
+{{define "self-update-job"}}
+  - name: self-update
     plan:
       - get: checkout
         trigger: true
-      - task: generate
+      - task: generate-branch-pipeline
         input_mapping:
           workspace: checkout
         config:
@@ -85,7 +85,7 @@ jobs:
       - get: checkout
         trigger: true
         passed:
-          - refresh
+          - self-update
 {{- end}}
 
 
