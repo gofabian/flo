@@ -4,10 +4,10 @@ var repositoryPipelineTemplate = `
 
 {{define "full-pipeline" -}}
   {{template "header" . -}}
+  {{template "branch-resources" . -}}
   {{template "jobs-header" . -}}
   {{template "self-update-job" . -}}
-  {{template "build-job-header-passed" . -}}
-  {{template "build-job-content" . -}}
+  {{template "build-jobs-passed" . -}}
 {{end}}
 {{define "self-update-pipeline" -}}
   {{template "header" . -}}
@@ -16,9 +16,9 @@ var repositoryPipelineTemplate = `
 {{end}}
 {{define "build-pipeline" -}}
   {{template "header" . -}}
+  {{template "branch-resources" . -}}
   {{template "jobs-header" . -}}
-  {{template "build-job-header" . -}}
-  {{template "build-job-content" . -}}
+  {{template "build-jobs" . -}}
 {{end}}
 
 
@@ -33,6 +33,17 @@ resources:
     type: branches-resource-type
     source:
       uri: ((GIT_URL))
+{{- end}}
+
+
+{{define "branch-resources" -}}
+  {{range .Branches}}
+  - name: "checkout-{{.HarmonizedName}}"
+    type: git
+    source:
+      branch: "((GIT_BRANCH))"
+      uri: "{{.Name}}"
+  {{- end}}
 {{- end}}
 
 
@@ -65,7 +76,7 @@ jobs:
             args:
               - -exc
               - |-
-                bs=$(tr '\n' ',' < branches | sed -e 's/,*$//' | sed -e 's/,/ -b /g')
+                bs=$(sort < branches | tr '\n' ',' | sed -e 's/,*$//' | sed -e 's/,/ -b /g')
                 flo generate repository -g "((GIT_URL))" -b $bs \
                   -i .drone.yml -o ../flo/pipeline.yml -j all
                 cat ../flo/pipeline.yml
@@ -76,15 +87,31 @@ jobs:
 {{- end}}
 
 
+{{define "build-jobs-passed" -}}
+  {{range .Branches -}}
+    {{template "build-job-header-passed" . -}}
+    {{template "build-job-content" . -}}
+  {{- end}}
+{{- end}}
+
+
+{{define "build-jobs" -}}
+  {{range .Branches -}}
+    {{template "build-job-header" . -}}
+    {{template "build-job-content" . -}}
+  {{- end}}
+{{- end}}
+
+
 {{define "build-job-header"}}
-  - name: pipelines
+  - name: "update-{{.HarmonizedName}}"
     plan:
       - get: branches
         trigger: true
 {{- end}}
 
 {{define "build-job-header-passed"}}
-  - name: update
+  - name: "update-{{.HarmonizedName}}"
     plan:
       - get: branches
         trigger: true
@@ -94,9 +121,10 @@ jobs:
 
 
 {{define "build-job-content"}}
+      - get: "checkout-{{.HarmonizedName}}"
       - task: generate-branch-pipeline
         input_mapping:
-          workspace: branches
+          workspace: "checkout-{{.HarmonizedName}}"
         config:
           platform: linux
           image_resource:
@@ -114,15 +142,13 @@ jobs:
               - -exc
               - |-
                 flo generate branch -g "((GIT_URL))" -b dummy \
-                  -i .drone.yml -o ../flo/pipeline.yml -j refresh
+                  -i .drone.yml -o ../flo/pipeline.yml -j all
                 cat ../flo/pipeline.yml
-  {{- range .Branches}}
       - set_pipeline: "branch-{{.HarmonizedName}}"
         file: flo/pipeline.yml
         vars:
           GIT_URL: ((GIT_URL))
           GIT_BRANCH: "{{.Name}}"
-  {{- end}}
 {{- end}}
 
 `
