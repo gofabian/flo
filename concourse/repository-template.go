@@ -41,8 +41,8 @@ resources:
   - name: "checkout-{{.HarmonizedName}}"
     type: git
     source:
-      branch: "((GIT_BRANCH))"
-      uri: "{{.Name}}"
+      uri: "((GIT_URL))"
+      branch: "{{.Name}}"
   {{- end}}
 {{- end}}
 
