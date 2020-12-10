@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/gofabian/flo/validator"
+	"github.com/gofabian/flo/util"
 )
 
 var nameRegexp, _ = regexp.Compile("^[a-zA-Z0-9_-]+$")
 
 func ValidatePipeline(p *Pipeline) []error {
-	v := &validator.Validator{}
+	v := &util.Validator{}
 
 	// global pipeline fields
 	v.Validate(p.Kind == "pipeline", "Expected .kind = 'pipeline', but found '%s'", p.Kind)

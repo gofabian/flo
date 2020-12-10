@@ -1,11 +1,8 @@
-package validator
+package util
 
 import (
 	"fmt"
-	"regexp"
 )
-
-var nameRegexp, _ = regexp.Compile("^[a-zA-Z0-9_-]+$")
 
 type Validator struct {
 	Errors []error
