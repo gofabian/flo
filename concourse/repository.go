@@ -15,7 +15,18 @@ type branch struct {
 	HarmonizedName string
 }
 
-func CreateRepositoryPipeline(templateName string, branches []string, file *os.File) error {
+func CreateRepositoryPipeline(selfUpdateJob bool, branches []string, file *os.File) error {
+	var templateName string
+	if selfUpdateJob && len(branches) > 0 {
+		templateName = "full-pipeline"
+	} else if selfUpdateJob {
+		templateName = "self-update-pipeline"
+	} else if len(branches) > 0 {
+		templateName = "build-pipeline"
+	} else {
+		return fmt.Errorf("missing template")
+	}
+
 	cfg := repository{}
 	cfg.Branches = make([]branch, len(branches))
 

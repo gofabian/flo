@@ -23,7 +23,18 @@ type step struct {
 	Commands    []string
 }
 
-func CreateBranchPipeline(templateName string, dronePipeline *drone.Pipeline, file *os.File) error {
+func CreateBranchPipeline(selfUpdateJob bool, dronePipeline *drone.Pipeline, file *os.File) error {
+	var templateName string
+	if selfUpdateJob && dronePipeline != nil {
+		templateName = "full-pipeline"
+	} else if selfUpdateJob {
+		templateName = "self-update-pipeline"
+	} else if dronePipeline != nil {
+		templateName = "build-pipeline"
+	} else {
+		return fmt.Errorf("missing template")
+	}
+
 	cfg := createTemplateConfig(dronePipeline)
 
 	t, err := template.New(templateName).Parse(branchPipelineTemplate)

@@ -7,18 +7,18 @@ var repositoryPipelineTemplate = `
   {{template "branch-resources" . -}}
   {{template "jobs-header" . -}}
   {{template "self-update-job" . -}}
-  {{template "build-jobs-passed" . -}}
+  {{template "build-jobs-passed" .}}
 {{end}}
 {{define "self-update-pipeline" -}}
   {{template "header" . -}}
   {{template "jobs-header" . -}}
-  {{template "self-update-job" . -}}
+  {{template "self-update-job" .}}
 {{end}}
 {{define "build-pipeline" -}}
   {{template "header" . -}}
   {{template "branch-resources" . -}}
   {{template "jobs-header" . -}}
-  {{template "build-jobs" . -}}
+  {{template "build-jobs" .}}
 {{end}}
 
 
@@ -76,9 +76,8 @@ jobs:
             args:
               - -exc
               - |-
-                bs=$(sort < branches | tr '\n' ',' | sed -e 's/,*$//' | sed -e 's/,/ -b /g')
-                flo generate repository -g "((GIT_URL))" -b $bs \
-                  -i .drone.yml -o ../flo/pipeline.yml -j all
+                b=$(sort < branches | tr '\n' ',' | sed -e 's/,*$//')
+                flo generate-pipeline -g "((GIT_URL))" -s multibranch -b "$b" -j self-update,build -o ../flo/pipeline.yml
                 cat ../flo/pipeline.yml
       - set_pipeline: self
         file: flo/pipeline.yml
@@ -141,8 +140,7 @@ jobs:
             args:
               - -exc
               - |-
-                flo generate branch -g "((GIT_URL))" -b dummy \
-                  -i .drone.yml -o ../flo/pipeline.yml -j all
+                flo generate-pipeline -g "((GIT_URL))" -s branch -b "{{.Name}}" -j self-update,build -o ../flo/pipeline.yml
                 cat ../flo/pipeline.yml
       - set_pipeline: "branch-{{.HarmonizedName}}"
         file: flo/pipeline.yml

@@ -7,18 +7,18 @@ var branchPipelineTemplate = `
   {{template "jobs-header" . -}}
   {{template "self-update-job" . -}}
   {{template "build-job-header-passed" . -}}
-  {{template "build-job-content" . -}}
+  {{template "build-job-content" .}}
 {{end}}
 {{define "self-update-pipeline" -}}
   {{template "header" . -}}
   {{template "jobs-header" . -}}
-  {{template "self-update-job" . -}}
+  {{template "self-update-job" .}}
 {{end}}
 {{define "build-pipeline" -}}
   {{template "header" . -}}
   {{template "jobs-header" . -}}
   {{template "build-job-header" . -}}
-  {{template "build-job-content" . -}}
+  {{template "build-job-content" .}}
 {{end}}
 
 
@@ -61,8 +61,7 @@ jobs:
             args:
                 - -exc
                 - |-
-                  flo generate branch -g "((GIT_URL))" -b "((GIT_BRANCH))" \
-                      -i .drone.yml -o ../flo/pipeline.yml -j all
+                  flo generate-pipeline -g "((GIT_URL))" -s branch -b "((GIT_BRANCH))" -j self-update,build -o ../flo/pipeline.yml
                   cat ../flo/pipeline.yml
       - set_pipeline: self
         file: flo/pipeline.yml

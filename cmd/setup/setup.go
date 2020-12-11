@@ -40,7 +40,7 @@ func init() {
 		branch       Generates a pipeline for a single branch. Requires one "-b" flag.
 	`))
 	SetupCommand.Flags().StringVarP(&branch, "branch", "b", "", util.Dedent(`
-		Git branch name. Combined with "-s branch".
+		Git `+"`branch`"+` name. Combined with "-s branch".
 	`))
 	SetupCommand.Flags().StringVarP(&input, "input", "i", "", util.Dedent(`
 		Path to input `+"`file`"+` (Drone pipeline), default: ".drone.yml"
