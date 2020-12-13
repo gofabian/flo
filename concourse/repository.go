@@ -2,7 +2,7 @@ package concourse
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"text/template"
 )
 
@@ -15,7 +15,7 @@ type branch struct {
 	HarmonizedName string
 }
 
-func CreateRepositoryPipeline(selfUpdateJob bool, branches []string, file *os.File) error {
+func CreateRepositoryPipeline(selfUpdateJob bool, branches []string, writer io.Writer) error {
 	var templateName string
 	if selfUpdateJob && len(branches) > 0 {
 		templateName = "full-pipeline"
@@ -40,7 +40,7 @@ func CreateRepositoryPipeline(selfUpdateJob bool, branches []string, file *os.Fi
 		return fmt.Errorf("cannot parse template %s: %w", templateName, err)
 	}
 
-	err = t.Execute(file, cfg)
+	err = t.Execute(writer, cfg)
 	if err != nil {
 		return fmt.Errorf("cannot execute template %s: %w", templateName, err)
 	}
