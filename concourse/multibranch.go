@@ -15,24 +15,24 @@ type branch struct {
 	HarmonizedName string
 }
 
-func CreateRepositoryPipeline(selfUpdateJob bool, branches []string, writer io.Writer) error {
+func CreateRepositoryPipeline(cfg *Config, writer io.Writer) error {
 	var templateName string
-	if selfUpdateJob && len(branches) > 0 {
+	if cfg.SelfUpdateJob && cfg.BuildJob {
 		templateName = "full-pipeline"
-	} else if selfUpdateJob {
+	} else if cfg.SelfUpdateJob {
 		templateName = "self-update-pipeline"
-	} else if len(branches) > 0 {
+	} else if cfg.BuildJob {
 		templateName = "build-pipeline"
 	} else {
 		return fmt.Errorf("missing template")
 	}
 
-	cfg := repository{}
-	cfg.Branches = make([]branch, len(branches))
+	templateCfg := repository{}
+	templateCfg.Branches = make([]branch, len(cfg.Branches))
 
-	for i, branch := range branches {
-		cfg.Branches[i].Name = branch
-		cfg.Branches[i].HarmonizedName = HarmonizeName(branch)
+	for i, branch := range cfg.Branches {
+		templateCfg.Branches[i].Name = branch
+		templateCfg.Branches[i].HarmonizedName = HarmonizeName(branch)
 	}
 
 	t, err := template.New(templateName).Parse(repositoryPipelineTemplate)
@@ -40,7 +40,7 @@ func CreateRepositoryPipeline(selfUpdateJob bool, branches []string, writer io.W
 		return fmt.Errorf("cannot parse template %s: %w", templateName, err)
 	}
 
-	err = t.Execute(writer, cfg)
+	err = t.Execute(writer, templateCfg)
 	if err != nil {
 		return fmt.Errorf("cannot execute template %s: %w", templateName, err)
 	}

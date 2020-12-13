@@ -5,8 +5,6 @@ import (
 	"io"
 	"strings"
 	"text/template"
-
-	"github.com/gofabian/flo/drone"
 )
 
 type pipeline struct {
@@ -23,58 +21,58 @@ type step struct {
 	Commands    []string
 }
 
-func CreateBranchPipeline(selfUpdateJob bool, dronePipeline *drone.Pipeline, writer io.Writer) error {
+func CreateBranchPipeline(cfg *Config, writer io.Writer) error {
 	var templateName string
-	if selfUpdateJob && dronePipeline != nil {
+	if cfg.SelfUpdateJob && cfg.BuildJob {
 		templateName = "full-pipeline"
-	} else if selfUpdateJob {
+	} else if cfg.SelfUpdateJob {
 		templateName = "self-update-pipeline"
-	} else if dronePipeline != nil {
+	} else if cfg.BuildJob {
 		templateName = "build-pipeline"
 	} else {
 		return fmt.Errorf("missing template")
 	}
 
-	cfg := createTemplateConfig(dronePipeline)
+	templateCfg := createTemplateConfig(cfg)
 
 	t, err := template.New(templateName).Parse(branchPipelineTemplate)
 	if err != nil {
 		return fmt.Errorf("cannot parse template %s: %w", templateName, err)
 	}
 
-	err = t.Execute(writer, cfg)
+	err = t.Execute(writer, templateCfg)
 	if err != nil {
 		return fmt.Errorf("cannot execute template %s: %w", templateName, err)
 	}
 	return nil
 }
 
-func createTemplateConfig(dronePipeline *drone.Pipeline) *pipeline {
-	cfg := &pipeline{}
+func createTemplateConfig(cfg *Config) *pipeline {
+	templateCfg := &pipeline{}
 
-	if dronePipeline == nil {
-		return cfg
+	if !cfg.BuildJob {
+		return templateCfg
 	}
 
-	cfg.Name = dronePipeline.Name
-	cfg.Steps = make([]step, len(dronePipeline.Steps))
+	templateCfg.Name = cfg.DronePipeline.Name
+	templateCfg.Steps = make([]step, len(cfg.DronePipeline.Steps))
 
-	for i, droneStep := range dronePipeline.Steps {
+	for i, droneStep := range cfg.DronePipeline.Steps {
 		repository, tag := splitImage(droneStep.Image)
-		cfg.Steps[i].Name = droneStep.Name
-		cfg.Steps[i].Repository = repository
-		cfg.Steps[i].Tag = tag
+		templateCfg.Steps[i].Name = droneStep.Name
+		templateCfg.Steps[i].Repository = repository
+		templateCfg.Steps[i].Tag = tag
 		if len(droneStep.Commands) == 1 {
 			args := strings.Split(droneStep.Commands[0], " ")
-			cfg.Steps[i].Command = args[0]
+			templateCfg.Steps[i].Command = args[0]
 			if len(args) > 1 {
-				cfg.Steps[i].CommandArgs = args[1:]
+				templateCfg.Steps[i].CommandArgs = args[1:]
 			}
 		} else {
-			cfg.Steps[i].Commands = droneStep.Commands
+			templateCfg.Steps[i].Commands = droneStep.Commands
 		}
 	}
-	return cfg
+	return templateCfg
 }
 
 func splitImage(image string) (string, string) {

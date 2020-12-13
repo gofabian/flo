@@ -101,12 +101,21 @@ func execute(cmd *cobra.Command, args []string) error {
 		os.Exit(1)
 	}
 
+	cfg := &concourse.Config{
+		SelfUpdateJob: true,
+		BuildJob:      false,
+		GitURL:        gitURL,
+		Branches:      []string{},
+		DronePipeline: nil,
+	}
+
 	var err error
 	pipelineBuffer := &bytes.Buffer{}
 	if style == "multibranch" {
-		err = concourse.CreateRepositoryPipeline(true, []string{}, pipelineBuffer)
+		err = concourse.CreateRepositoryPipeline(cfg, pipelineBuffer)
 	} else {
-		err = concourse.CreateBranchPipeline(true, nil, pipelineBuffer)
+		cfg.Branches = []string{branch}
+		err = concourse.CreateBranchPipeline(cfg, pipelineBuffer)
 	}
 	if err != nil {
 		return err

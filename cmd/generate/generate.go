@@ -146,15 +146,24 @@ func execute(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "output: %s\n\n", output)
 	}
 
+	cfg := &concourse.Config{
+		SelfUpdateJob: selfUpdateJob,
+		BuildJob:      buildJob,
+		GitURL:        gitURL,
+		Branches:      branches,
+		DronePipeline: nil,
+	}
+
 	switch style {
 	case "branch":
 		dronePipeline, err := getDronePipeline()
 		if err != nil {
 			return err
 		}
-		return concourse.CreateBranchPipeline(selfUpdateJob, dronePipeline, outputFile)
+		cfg.DronePipeline = dronePipeline
+		return concourse.CreateBranchPipeline(cfg, outputFile)
 	case "multibranch":
-		return concourse.CreateRepositoryPipeline(selfUpdateJob, branches, outputFile)
+		return concourse.CreateRepositoryPipeline(cfg, outputFile)
 	}
 
 	return nil
