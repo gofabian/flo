@@ -27,7 +27,7 @@ resource_types:
   - name: branches-resource-type
     type: registry-image
     source:
-      repository: vito/git-branches-resource
+      repository: gofabian/git-branches-resource
 resources:
   - name: branches
     type: branches-resource-type
