@@ -104,7 +104,6 @@ func execute(cmd *cobra.Command, args []string) error {
 	cfg := &concourse.Config{
 		SelfUpdateJob: true,
 		BuildJob:      false,
-		GitURL:        gitURL,
 		Branches:      []string{},
 		DronePipeline: nil,
 	}
@@ -132,8 +131,8 @@ func execute(cmd *cobra.Command, args []string) error {
 	err = command.Run()
 	existedPipelineBefore := (err == nil)
 
-	command = newCmd("fly", "-t", target, "set-pipeline", "-p", pipelineName, "-v",
-		"GIT_URL=https://github.com/gofabian/flo.git", "-v", "GIT_BRANCH="+branch, "-c=-")
+	command = newCmd("fly", "-t", target, "set-pipeline", "-c=-", "-p", pipelineName,
+		"-v", "GIT_URL="+gitURL, "-v", "GIT_BRANCH="+branch)
 	command.Stdin = pipelineBuffer
 	err = command.Run()
 	if err != nil {

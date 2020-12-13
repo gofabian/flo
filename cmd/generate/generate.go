@@ -15,12 +15,12 @@ import (
 )
 
 var GenerateCommand = &cobra.Command{
-	Use: "generate-pipeline -g <url> -s <style>",
+	Use: "generate-pipeline -s <style>",
 	Example: util.Dedent(`
-		` + "\x00" + `  Minimal pipelines:  flo generate-pipeline -g <url> -s multibranch
-		                      flo generate-pipeline -g <url> -s branch -b main
-		` + "\x00" + `  Fully populated:    flo generate-pipeline -g <url> -s multibranch -j self-update,branch -b main,develop,feature/x
-		                      flo generate-pipeline -g <url> -s branch -j self-update -jbranch -b main
+		` + "\x00" + `  Minimal pipelines:  flo generate-pipeline -s multibranch
+		                      flo generate-pipeline -s branch
+		` + "\x00" + `  Fully populated:    flo generate-pipeline -s multibranch -j self-update,build -b main,develop,feature/x
+		                      flo generate-pipeline -s branch -j self-update -j build
 	`),
 	Short: "Generates a Concourse pipeline with a Drone pipeline as input.",
 	Long:  "Generates a Concourse pipeline with a Drone pipeline as input. Supports multibranch pipelines.",
@@ -29,7 +29,6 @@ var GenerateCommand = &cobra.Command{
 }
 
 var (
-	gitURL   string
 	style    string
 	branches = []string{}
 	jobs     = []string{}
@@ -46,19 +45,12 @@ func init() {
 	GenerateCommand.Flags().BoolP("help", "h", false, util.Dedent(`
 		Print help text
 	`))
-	GenerateCommand.Flags().StringVarP(&gitURL, "git-url", "g", "", util.Dedent(`
-		Git remote `+"`url`"+`, e. g. "https://github.com/org/repo.git", "git@github.com:org/repo.git"
-	`))
 	GenerateCommand.Flags().StringVarP(&style, "style", "s", "", util.Dedent(`
 		Choose between multibranch and single branch `+"`style`:"+`
 
 		multibranch  Generates a pipeline that setups pipelines for each branch of the repository.
 
-		branch       Generates a pipeline for a single branch. Requires one "-b" flag.
-	`))
-	GenerateCommand.Flags().StringSliceVarP(&branches, "branch", "b", []string{}, util.Dedent(`
-		Git branch name. Requires 1 branch combined with "-s branch" or 1..n `+"`branches`"+` combined with 
-		"-s multibranch -j build".
+		branch       Generates a pipeline for a single branch.
 	`))
 	GenerateCommand.Flags().StringSliceVarP(&jobs, "job", "j", nil, util.Dedent(`
 		Select `+"`jobs`"+` to be part of the generated pipeline. Multiple flags are possible:
@@ -70,7 +62,12 @@ func init() {
 
 		build        Job that setups a pipeline for each branch (in multibranch pipeline) or 
 		             job that executes the actual build steps (in single branch pipeline).
-		             Requires 1..n "-b" flags for multibranch pipeline.
+					 Requires 1..n "-b" flags for multibranch pipeline.
+					 Requires input file (default: "-i .drone.yml") to be present in working 
+					 directory.
+	`))
+	GenerateCommand.Flags().StringSliceVarP(&branches, "branch", "b", []string{}, util.Dedent(`
+		Git branch names. Requires 1..n `+"`branches`"+` combined with "-s multibranch -j build".
 	`))
 	GenerateCommand.Flags().StringVarP(&input, "input", "i", "", util.Dedent(`
 		Path to input `+"`file`"+` (Drone pipeline), default: ".drone.yml"
@@ -104,14 +101,8 @@ func execute(cmd *cobra.Command, args []string) error {
 		stdout = true
 	}
 
-	if gitURL == "" {
-		return fmt.Errorf("'-g' is required")
-	}
 	if style != "multibranch" && style != "branch" {
 		return fmt.Errorf("'-s multibranch|branch' is required")
-	}
-	if style == "branch" && len(branches) != 1 {
-		return fmt.Errorf("'-s branch' requires a single '-b' flag")
 	}
 	if style == "multibranch" && buildJob && len(branches) == 0 {
 		return fmt.Errorf("'-s multibranch -j build' requires at least one '-b' flag")
@@ -133,7 +124,6 @@ func execute(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "\nGenerating %s pipeline...\n\n", style)
-	fmt.Fprintf(os.Stderr, "Git URL: %s\n", gitURL)
 	fmt.Fprintf(os.Stderr, "style: %s\n", style)
 	if len(branches) > 0 {
 		fmt.Fprintf(os.Stderr, "branches: %s\n", strings.Join(branches, ", "))
@@ -149,7 +139,6 @@ func execute(cmd *cobra.Command, args []string) error {
 	cfg := &concourse.Config{
 		SelfUpdateJob: selfUpdateJob,
 		BuildJob:      buildJob,
-		GitURL:        gitURL,
 		Branches:      branches,
 		DronePipeline: nil,
 	}
