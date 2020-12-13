@@ -2,7 +2,7 @@ package concourse
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"text/template"
 
@@ -23,7 +23,7 @@ type step struct {
 	Commands    []string
 }
 
-func CreateBranchPipeline(selfUpdateJob bool, dronePipeline *drone.Pipeline, file *os.File) error {
+func CreateBranchPipeline(selfUpdateJob bool, dronePipeline *drone.Pipeline, writer io.Writer) error {
 	var templateName string
 	if selfUpdateJob && dronePipeline != nil {
 		templateName = "full-pipeline"
@@ -42,7 +42,7 @@ func CreateBranchPipeline(selfUpdateJob bool, dronePipeline *drone.Pipeline, fil
 		return fmt.Errorf("cannot parse template %s: %w", templateName, err)
 	}
 
-	err = t.Execute(file, cfg)
+	err = t.Execute(writer, cfg)
 	if err != nil {
 		return fmt.Errorf("cannot execute template %s: %w", templateName, err)
 	}

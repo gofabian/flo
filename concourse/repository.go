@@ -32,7 +32,7 @@ func CreateRepositoryPipeline(selfUpdateJob bool, branches []string, writer io.W
 
 	for i, branch := range branches {
 		cfg.Branches[i].Name = branch
-		cfg.Branches[i].HarmonizedName = harmonizeName(branch)
+		cfg.Branches[i].HarmonizedName = HarmonizeName(branch)
 	}
 
 	t, err := template.New(templateName).Parse(repositoryPipelineTemplate)

@@ -93,28 +93,38 @@ func execute(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(os.Stdout)
 
 	if !isFlyAvailable() {
-		fmt.Fprintf(os.Stderr, "'fly' executable cannot be found in PATH:\n")
+		fmt.Fprintf(os.Stderr, "'fly' executable cannot be found in PATH!\n")
 		os.Exit(1)
-		return nil
 	}
 	if !isTargetLoggedIn() {
 		fmt.Fprintf(os.Stderr, "fly target '%s' is not logged in\n", target)
 		os.Exit(1)
-		return nil
 	}
 
+	var err error
 	pipelineBuffer := &bytes.Buffer{}
-	err := concourse.CreateRepositoryPipeline(true, []string{}, pipelineBuffer)
+	if style == "multibranch" {
+		err = concourse.CreateRepositoryPipeline(true, []string{}, pipelineBuffer)
+	} else {
+		err = concourse.CreateBranchPipeline(true, nil, pipelineBuffer)
+	}
 	if err != nil {
 		return err
 	}
 
-	command := newCmd("fly", "-t", target, "get-pipeline", "-p", "multibranch")
+	var pipelineName string
+	if style == "multibranch" {
+		pipelineName = "multibranch"
+	} else {
+		pipelineName = concourse.HarmonizeGitURL(gitURL + "-" + branch)
+	}
+
+	command := newCmd("fly", "-t", target, "get-pipeline", "-p", pipelineName)
 	err = command.Run()
 	existedPipelineBefore := (err == nil)
 
-	command = newCmd("fly", "-t", target, "set-pipeline", "-p", "multibranch", "-v",
-		"GIT_URL=https://github.com/gofabian/flo.git", "-c=-")
+	command = newCmd("fly", "-t", target, "set-pipeline", "-p", pipelineName, "-v",
+		"GIT_URL=https://github.com/gofabian/flo.git", "-v", "GIT_BRANCH="+branch, "-c=-")
 	command.Stdin = pipelineBuffer
 	err = command.Run()
 	if err != nil {
@@ -123,7 +133,7 @@ func execute(cmd *cobra.Command, args []string) error {
 	}
 
 	if !existedPipelineBefore {
-		command = newCmd("fly", "-t", target, "unpause-pipeline", "-p", "multibranch")
+		command = newCmd("fly", "-t", target, "unpause-pipeline", "-p", pipelineName)
 		err = command.Run()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "fly failed with %s", err)
