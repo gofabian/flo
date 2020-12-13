@@ -87,30 +87,30 @@ jobs:
 
 
 {{define "build-jobs-passed" -}}
+  {{template "build-job-header-passed" . -}}
   {{range .Branches -}}
-    {{template "build-job-header-passed" . -}}
     {{template "build-job-content" . -}}
   {{- end}}
 {{- end}}
 
 
 {{define "build-jobs" -}}
+  {{template "build-job-header" . -}}
   {{range .Branches -}}
-    {{template "build-job-header" . -}}
     {{template "build-job-content" . -}}
   {{- end}}
 {{- end}}
 
 
 {{define "build-job-header"}}
-  - name: "update-{{.HarmonizedName}}"
+  - name: update-branch-pipelines
     plan:
       - get: branches
         trigger: true
 {{- end}}
 
 {{define "build-job-header-passed"}}
-  - name: "update-{{.HarmonizedName}}"
+  - name: update-branch-pipelines
     plan:
       - get: branches
         trigger: true
@@ -121,7 +121,7 @@ jobs:
 
 {{define "build-job-content"}}
       - get: "checkout-{{.HarmonizedName}}"
-      - task: generate-branch-pipeline
+      - task: "generate-branch-pipeline-{{.HarmonizedName}}"
         input_mapping:
           workspace: "checkout-{{.HarmonizedName}}"
         config:
