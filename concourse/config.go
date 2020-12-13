@@ -7,4 +7,5 @@ type Config struct {
 	BuildJob      bool
 	Branches      []string
 	DronePipeline *drone.Pipeline
+	Input         string
 }

@@ -141,6 +141,7 @@ func execute(cmd *cobra.Command, args []string) error {
 		BuildJob:      buildJob,
 		Branches:      branches,
 		DronePipeline: nil,
+		Input:         input,
 	}
 
 	switch style {

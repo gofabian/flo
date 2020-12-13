@@ -7,12 +7,14 @@ import (
 )
 
 type repository struct {
-	Branches []branch
+	DroneFile string
+	Branches  []branch
 }
 
 type branch struct {
 	Name           string
 	HarmonizedName string
+	DroneFile      string
 }
 
 func CreateRepositoryPipeline(cfg *Config, writer io.Writer) error {
@@ -28,11 +30,13 @@ func CreateRepositoryPipeline(cfg *Config, writer io.Writer) error {
 	}
 
 	templateCfg := repository{}
+	templateCfg.DroneFile = cfg.Input
 	templateCfg.Branches = make([]branch, len(cfg.Branches))
 
 	for i, branch := range cfg.Branches {
 		templateCfg.Branches[i].Name = branch
 		templateCfg.Branches[i].HarmonizedName = HarmonizeName(branch)
+		templateCfg.Branches[i].DroneFile = cfg.Input
 	}
 
 	t, err := template.New(templateName).Parse(repositoryPipelineTemplate)

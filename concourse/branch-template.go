@@ -61,7 +61,7 @@ jobs:
             args:
                 - -exc
                 - |-
-                  flo generate-pipeline -s branch -j self-update,build -o ../flo/pipeline.yml
+                  flo generate-pipeline -s branch -j self-update,build -i "{{.DroneFile}}" -o ../flo/pipeline.yml
                   cat ../flo/pipeline.yml
       - set_pipeline: self
         file: flo/pipeline.yml

@@ -106,6 +106,7 @@ func execute(cmd *cobra.Command, args []string) error {
 		BuildJob:      false,
 		Branches:      []string{},
 		DronePipeline: nil,
+		Input:         input,
 	}
 
 	var err error

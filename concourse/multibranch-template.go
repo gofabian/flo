@@ -77,7 +77,7 @@ jobs:
               - -exc
               - |-
                 b=$(sort < branches | tr '\n' ',' | sed -e 's/,*$//')
-                flo generate-pipeline -s multibranch -j self-update,build -b "$b" -o ../flo/pipeline.yml
+                flo generate-pipeline -s multibranch -j self-update,build -b "$b" -i "{{.DroneFile}}" -o ../flo/pipeline.yml
                 cat ../flo/pipeline.yml
       - set_pipeline: self
         file: flo/pipeline.yml
@@ -140,7 +140,7 @@ jobs:
             args:
               - -exc
               - |-
-                flo generate-pipeline -s branch -j self-update,build -o ../flo/pipeline.yml
+                flo generate-pipeline -s branch -j self-update,build -i "{{.DroneFile}}" -o ../flo/pipeline.yml
                 cat ../flo/pipeline.yml
       - set_pipeline: "branch-{{.HarmonizedName}}"
         file: flo/pipeline.yml

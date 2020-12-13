@@ -8,8 +8,9 @@ import (
 )
 
 type pipeline struct {
-	Name  string
-	Steps []step
+	Name      string
+	Steps     []step
+	DroneFile string
 }
 
 type step struct {
@@ -49,6 +50,7 @@ func CreateBranchPipeline(cfg *Config, writer io.Writer) error {
 
 func createTemplateConfig(cfg *Config) *pipeline {
 	templateCfg := &pipeline{}
+	templateCfg.DroneFile = cfg.Input
 
 	if !cfg.BuildJob {
 		return templateCfg
